@@ -48,10 +48,10 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
             // request available peers from the wifi p2p manager. This is an
             // asynchronous call and the calling activity is notified with a
             // callback on PeerListListener.onPeersAvailable()
-//            if (manager != null) {
-//                manager.requestPeers(channel, (PeerListListener) activity.getFragmentManager()
-//                        .findFragmentById(R.id.frag_list));
-//            }
+            if (manager != null) {
+                manager.requestPeers(channel, (PeerListListener) activity.getFragmentManager()
+                        .findFragmentById(R.id.frag_list));
+            }
             Log.d(MainActivity.TAG, "P2P peers changed");
         } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
 
@@ -76,10 +76,10 @@ public class WiFiDirectBroadcastReceiver extends BroadcastReceiver {
             }
             Log.d(MainActivity.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION");
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-//            DeviceListFragment fragment = (DeviceListFragment) activity.getFragmentManager()
-//                    .findFragmentById(R.id.frag_list);
-//            fragment.updateThisDevice((WifiP2pDevice) intent.getParcelableExtra(
-//                    WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
+            DeviceListFragment fragment = (DeviceListFragment) activity.getFragmentManager()
+                    .findFragmentById(R.id.frag_list);
+            fragment.updateThisDevice((WifiP2pDevice) intent.getParcelableExtra(
+                    WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
         	Log.d(MainActivity.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION");
         }
 	}

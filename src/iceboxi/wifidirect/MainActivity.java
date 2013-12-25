@@ -1,6 +1,6 @@
 package iceboxi.wifidirect;
 
-import com.example.wifidirecttest.R;
+import iceboxi.wifidirect.R;
 
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;

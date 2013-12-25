@@ -4,5 +4,8 @@
     <string name="app_name">WifiDirectTest</string>
     <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string>
+    <string name="label_me">me</string>
+    <string name="label_peers">peers</string>
+    <string name="empty_message">尚未找到可用的裝置</string>
 
 </resources>
