@@ -5,12 +5,14 @@ import iceboxi.wifidirect.R;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.net.wifi.p2p.WifiP2pManager.ActionListener;
 import android.net.wifi.p2p.WifiP2pManager.Channel;
 import android.os.Bundle;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.widget.Toast;
@@ -65,16 +67,16 @@ public class MainActivity extends Activity implements DeviceActionListener{
 	}
 
 	public void resetData() {
-//      DeviceListFragment fragmentList = (DeviceListFragment) getFragmentManager()
-//              .findFragmentById(R.id.frag_list);
-//      DeviceDetailFragment fragmentDetails = (DeviceDetailFragment) getFragmentManager()
-//              .findFragmentById(R.id.frag_detail);
-//      if (fragmentList != null) {
-//          fragmentList.clearPeers();
-//      }
-//      if (fragmentDetails != null) {
-//          fragmentDetails.resetViews();
-//      }
+		DeviceListFragment fragmentList = (DeviceListFragment) getFragmentManager()
+				.findFragmentById(R.id.frag_list);
+		DeviceDetailFragment fragmentDetails = (DeviceDetailFragment) getFragmentManager()
+				.findFragmentById(R.id.frag_detail);
+		if (fragmentList != null) {
+			fragmentList.clearPeers();
+		}
+		if (fragmentDetails != null) {
+			fragmentDetails.resetViews();
+		}
 	}
 	
 	public boolean searchPeers(View v) {
@@ -83,7 +85,9 @@ public class MainActivity extends Activity implements DeviceActionListener{
             return true;
         }
 		
-		// TODO: maybe a alert?
+		DeviceListFragment listFragment = (DeviceListFragment) getFragmentManager()
+				.findFragmentById(R.id.frag_list);
+		listFragment.onInitiateDiscovery();
 		
 		manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
@@ -101,8 +105,9 @@ public class MainActivity extends Activity implements DeviceActionListener{
 	
 	@Override
 	public void showDetails(WifiP2pDevice device) {
-		// TODO Auto-generated method stub
-		
+		DeviceDetailFragment fragment = (DeviceDetailFragment) getFragmentManager()
+                .findFragmentById(R.id.frag_detail);
+        fragment.showDetails(device);
 	}
 
 	@Override
@@ -113,14 +118,40 @@ public class MainActivity extends Activity implements DeviceActionListener{
 
 	@Override
 	public void connect(WifiP2pConfig config) {
-		// TODO Auto-generated method stub
-		
+		manager.connect(channel, config, new ActionListener() {
+
+            @Override
+            public void onSuccess() {
+                // WiFiDirectBroadcastReceiver will notify us. Ignore for now.
+            }
+
+            @Override
+            public void onFailure(int reason) {
+                Toast.makeText(MainActivity.this, "Connect failed. Retry.",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
 	}
 
 	@Override
 	public void disconnect() {
-		// TODO Auto-generated method stub
-		
+		final DeviceDetailFragment detailFragment = (DeviceDetailFragment) getFragmentManager()
+                .findFragmentById(R.id.frag_detail);
+		detailFragment.resetViews();
+        manager.removeGroup(channel, new ActionListener() {
+
+            @Override
+            public void onFailure(int reasonCode) {
+                Log.d(TAG, "Disconnect failed. Reason :" + reasonCode);
+
+            }
+
+            @Override
+            public void onSuccess() {
+            	detailFragment.getView().setVisibility(View.GONE);
+            }
+
+        });
 	}
 
 }

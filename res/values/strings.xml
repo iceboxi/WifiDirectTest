@@ -7,5 +7,14 @@
     <string name="label_me">me</string>
     <string name="label_peers">peers</string>
     <string name="empty_message">尚未找到可用的裝置</string>
-
+    <string name="connect_peer_button">連線</string>
+    <string name="disconnect_peer_button">中斷連線</string>
+    <string name="get_file_button">取得檔案</string>
+    <string name="empty"></string>
+    <string name="group_owner_text">Group Owner? </string>
+    <string name="yes">yes</string>
+    <string name="no">no</string>
+    <string name="client_text">這是client</string>
+	<string name="server_text">這是ower</string>
+	
 </resources>
