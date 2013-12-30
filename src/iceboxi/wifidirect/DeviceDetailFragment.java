@@ -1,14 +1,25 @@
 package iceboxi.wifidirect;
 
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Map;
+
+import org.apache.http.client.methods.HttpPost;
+
 import android.app.Fragment;
 import android.app.ProgressDialog;
+import android.content.Intent;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
 import android.os.Bundle;
+import android.os.Message;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,24 +67,31 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     @Override
                     public void onClick(View v) {
-                        // Allow user to pick an image from Gallery or other
-                        // registered apps
-                    	// 先到這個activity做點事情什麼的
-//                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-//                        intent.setType("image/*");
-//                        startActivityForResult(intent, CHOOSE_FILE_RESULT_CODE);
+                    	System.out.println("111here go");
                     	//暫時只是轉過去直接傳送固定字串
-//                    	Intent serviceIntent = new Intent(getActivity(), FileTransferService.class);
-//                        serviceIntent.setAction(FileTransferService.ACTION_SEND_FILE);
-//                        serviceIntent.putExtra(FileTransferService.EXTRAS_FILE_PATH, "lol");
-//                        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_ADDRESS,
-//                                info.groupOwnerAddress.getHostAddress());
-//                        serviceIntent.putExtra(FileTransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
-//                        getActivity().startService(serviceIntent);
+                    	Intent serviceIntent = new Intent(getActivity(), TransferService.class);
+                        serviceIntent.setAction(TransferService.ACTION_SEND_FILE);
+                        serviceIntent.putExtra(TransferService.EXTRAS_FILE_PATH, "lol");
+                        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_ADDRESS,
+                                info.groupOwnerAddress.getHostAddress());
+                        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
+                        getActivity().startService(serviceIntent);
                     }
                 });
 
         return mContentView;
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    	System.out.println("222here go");
+    	Intent serviceIntent = new Intent(getActivity(), TransferService.class);
+        serviceIntent.setAction(TransferService.ACTION_SEND_FILE);
+        serviceIntent.putExtra(TransferService.EXTRAS_FILE_PATH, "lol");
+        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_ADDRESS,
+                info.groupOwnerAddress.getHostAddress());
+        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
+        getActivity().startService(serviceIntent);
     }
     
 	@Override
@@ -92,17 +110,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
         
-        // TODO 有人要開socket
-        // TODO 先互給有的狀況？
-        
-        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
-        
         if (info.groupFormed && info.isGroupOwner) {
-        	((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
-                    .getString(R.string.server_text));
+        	// TODO 有人要開socket，先考慮one to one
+        	
+        	new TransferServerAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text))
+                    .execute();
 		} else if (info.groupFormed) {
-        	((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
-                    .getString(R.string.client_text));
+			mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
+			
+			((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
+					.getString(R.string.client_text));
 		}
         
 	}
@@ -134,5 +151,22 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view.setText(R.string.empty);
         mContentView.findViewById(R.id.btn_start_client).setVisibility(View.GONE);
         this.getView().setVisibility(View.GONE);
+    }
+	
+	public static boolean copyFile(InputStream inputStream, OutputStream out) {
+        byte buf[] = new byte[1024];
+        int len;
+        try {
+            while ((len = inputStream.read(buf)) != -1) {
+                out.write(buf, 0, len);
+
+            }
+            out.close();
+            inputStream.close();
+        } catch (IOException e) {
+            Log.d(MainActivity.TAG, e.toString());
+            return false;
+        }
+        return true;
     }
 }
