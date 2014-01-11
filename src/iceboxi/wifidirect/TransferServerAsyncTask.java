@@ -13,7 +13,7 @@ import android.os.Environment;
 import android.view.View;
 import android.widget.TextView;
 
-public class TransferServerAsyncTask extends AsyncTask<Void, Void, String> {
+public class TransferServerAsyncTask extends AsyncTask<Object, Void, String> {
 	private Context context;
     private TextView statusText;
     
@@ -28,27 +28,34 @@ public class TransferServerAsyncTask extends AsyncTask<Void, Void, String> {
     }
     
 	@Override
-	protected String doInBackground(Void... params) {
+	protected String doInBackground(Object... params) {
 		try {
-            ServerSocket serverSocket = new ServerSocket(8988);
+            ServerSocket serverSocket = new ServerSocket((Integer) params[1]);
             Socket client = serverSocket.accept();
-            final File f = new File(Environment.getExternalStorageDirectory() + "/"
-                    + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
-                    + ".txt");
-
-            File dirs = new File(f.getParent());
-            if (!dirs.exists())
-                dirs.mkdirs();
-            f.createNewFile();
-
-            System.out.println("4444 here go");
             
-            InputStream inputstream = client.getInputStream();
-            DeviceDetailFragment.copyFile(inputstream, new FileOutputStream(f));
+            if (params[0] == ServiceAction.PostClientIP) {
+				DeviceDetailFragment.saveClientInfo(client.getInetAddress().getHostName(), client.getInetAddress().getHostAddress());
+				
+				return null;
+			} else if (params[0] == ServiceAction.TansferFile) {
+				final File f = new File(Environment.getExternalStorageDirectory() + "/"
+	                    + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
+	                    + ".txt");
+
+	            File dirs = new File(f.getParent());
+	            if (!dirs.exists())
+	                dirs.mkdirs();
+	            f.createNewFile();
+	            
+	            InputStream inputstream = client.getInputStream();
+	            DeviceDetailFragment.copyFile(inputstream, new FileOutputStream(f));
+	            
+	            serverSocket.close();
+	            
+	            return f.getAbsolutePath();
+			}
             
-            System.out.println("5555 here go");
-            serverSocket.close();
-            return f.getAbsolutePath();
+            return null;
         } catch (IOException e) {
             return null;
         }

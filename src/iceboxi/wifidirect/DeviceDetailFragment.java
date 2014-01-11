@@ -4,6 +4,8 @@ package iceboxi.wifidirect;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.SocketChannel;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.http.client.methods.HttpPost;
@@ -18,6 +20,7 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -31,6 +34,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	private WifiP2pDevice device;
     private WifiP2pInfo info;
     ProgressDialog progressDialog = null;
+    private static HashMap<String, String> clients;
+    private static String clientIP;
     
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -67,31 +72,16 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     @Override
                     public void onClick(View v) {
-                    	System.out.println("111here go");
                     	//暫時只是轉過去直接傳送固定字串
-                    	Intent serviceIntent = new Intent(getActivity(), TransferService.class);
-                        serviceIntent.setAction(TransferService.ACTION_SEND_FILE);
-                        serviceIntent.putExtra(TransferService.EXTRAS_FILE_PATH, "lol");
-                        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_ADDRESS,
-                                info.groupOwnerAddress.getHostAddress());
-                        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
-                        getActivity().startService(serviceIntent);
+                    	if (info.groupFormed && info.isGroupOwner) {
+                    		defaultTransferService(ServiceAction.TansferFile.toString(), clientIP, 8988);
+                    	} else if (info.groupFormed) {
+                    		defaultTransferService(ServiceAction.TansferFile.toString(), info.groupOwnerAddress.getHostAddress(), 8988);
+                    	}
                     }
                 });
 
         return mContentView;
-    }
-    
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-    	System.out.println("222here go");
-    	Intent serviceIntent = new Intent(getActivity(), TransferService.class);
-        serviceIntent.setAction(TransferService.ACTION_SEND_FILE);
-        serviceIntent.putExtra(TransferService.EXTRAS_FILE_PATH, "lol");
-        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_ADDRESS,
-                info.groupOwnerAddress.getHostAddress());
-        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_PORT, 8988);
-        getActivity().startService(serviceIntent);
     }
     
 	@Override
@@ -109,17 +99,23 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view.setText("Group Owner IP - " + info.groupOwnerAddress.getHostAddress());
         
         mContentView.findViewById(R.id.btn_connect).setVisibility(View.GONE);
+        mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
         
         if (info.groupFormed && info.isGroupOwner) {
         	// TODO 有人要開socket，先考慮one to one
         	
         	new TransferServerAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text))
-                    .execute();
+                    .execute(ServiceAction.PostClientIP, 8888);
+        	new TransferServerAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text))
+            		.execute(ServiceAction.TansferFile, 8988);
 		} else if (info.groupFormed) {
-			mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
+			new TransferServerAsyncTask(getActivity(), mContentView.findViewById(R.id.status_text))
+            		.execute(ServiceAction.TansferFile, 8988);
 			
 			((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
 					.getString(R.string.client_text));
+			
+			defaultTransferService(ServiceAction.PostClientIP.toString(), info.groupOwnerAddress.getHostAddress(), 8888);
 		}
         
 	}
@@ -169,4 +165,28 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         }
         return true;
     }
+	
+	public static boolean saveClientInfo(String name, String ip) {
+		if (clients == null) {
+			clients = new HashMap<String, String>();
+		}
+		
+		clients.put(name, ip);
+		
+		clientIP = ip;
+		
+		System.out.println("ip = " + ip);
+		
+		return true;
+	}
+	
+	private void defaultTransferService(String action, String ip, Integer port) {
+		Intent serviceIntent = new Intent(getActivity(), TransferService.class);
+        serviceIntent.setAction(action);
+        serviceIntent.putExtra(TransferService.EXTRAS_FILE_PATH, "default");
+        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_ADDRESS,
+                ip);
+        serviceIntent.putExtra(TransferService.EXTRAS_GROUP_OWNER_PORT, port);
+        getActivity().startService(serviceIntent);
+	}
 }
