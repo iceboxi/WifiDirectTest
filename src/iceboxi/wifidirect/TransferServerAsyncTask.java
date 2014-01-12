@@ -33,11 +33,7 @@ public class TransferServerAsyncTask extends AsyncTask<Object, Void, String> {
             ServerSocket serverSocket = new ServerSocket((Integer) params[1]);
             Socket client = serverSocket.accept();
             
-            if (params[0] == ServiceAction.PostClientIP) {
-				DeviceDetailFragment.saveClientInfo(client.getInetAddress().getHostName(), client.getInetAddress().getHostAddress());
-				
-				return null;
-			} else if (params[0] == ServiceAction.TansferFile) {
+            if (params[0] == ServiceAction.TansferFile) {
 				final File f = new File(Environment.getExternalStorageDirectory() + "/"
 	                    + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
 	                    + ".txt");
