@@ -1,5 +1,7 @@
 package iceboxi.wifidirect;
 
+import iceboxi.connect.service.ServiceAction;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -33,7 +35,7 @@ public class TransferServerAsyncTask extends AsyncTask<Object, Void, String> {
             ServerSocket serverSocket = new ServerSocket((Integer) params[1]);
             Socket client = serverSocket.accept();
             
-            if (params[0] == ServiceAction.TansferFile) {
+            if (params[0] == ServiceAction.TransferFile) {
 				final File f = new File(Environment.getExternalStorageDirectory() + "/"
 	                    + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
 	                    + ".txt");

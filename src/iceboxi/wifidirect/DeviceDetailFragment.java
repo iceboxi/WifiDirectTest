@@ -1,22 +1,21 @@
 package iceboxi.wifidirect;
 
 
+import iceboxi.connect.service.MyService;
 import iceboxi.connect.service.MyClient;
 import iceboxi.connect.service.MyServer;
+import iceboxi.connect.service.ServiceAction;
+import iceboxi.system.file.FileHelp;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.SocketChannel;
-import java.util.HashMap;
-import java.util.Map;
 
-import org.apache.http.client.methods.HttpPost;
+import org.json.JSONObject;
 
 import android.app.Fragment;
 import android.app.ProgressDialog;
-import android.content.Intent;
-import android.net.wifi.WifiManager;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
@@ -37,8 +36,12 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	private WifiP2pDevice device;
     private WifiP2pInfo info;
     ProgressDialog progressDialog = null;
-    MyServer myServer;
-    MyClient myClient;
+    private MyService chatService;
+    private MyService transferFileService;
+    private String testFilePath = "/Download/123.pdf";
+    private final int CHATPORT = 8998;
+    private final int TRANSFERPORT = 8988;
+    private String fileAtTheIP = null;
     
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -66,12 +69,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     @Override
                     public void onClick(View v) {
-                    	if (myClient != null) {
-                    		myClient.closeConnection();
-						}
-                    	if (myServer != null) {
-                    		myServer.closeConnection();
-						}
                         ((DeviceActionListener) getActivity()).disconnect();
                     }
                 });
@@ -81,13 +78,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     @Override
                     public void onClick(View v) {
-                    	//暫時只是轉過去直接傳送固定字串
-                    	if (myClient != null) {
-                    		myClient.sendMessageToServer("clinet sent something");
-						}
-                    	if (myServer != null) {
-                    		myServer.sendMessageToClient("server sent something");
-						}
+                    	askFile(testFilePath);
                     }
                 });
 
@@ -112,12 +103,11 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         mContentView.findViewById(R.id.btn_start_client).setVisibility(View.VISIBLE);
         
         if (info.groupFormed && info.isGroupOwner) {
-        	// TODO 有人要開socket，先考慮one to one
-        	openServer(8988, uiHandler);
+        	openChatServer(CHATPORT, mainHandler);
 		} else if (info.groupFormed) {
 			((TextView) mContentView.findViewById(R.id.status_text)).setText(getResources()
 					.getString(R.string.client_text));
-			connectToServer(8988, uiHandler);
+			connectToChatServer(CHATPORT, mainHandler);
 		}
         
 	}
@@ -168,57 +158,213 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         return true;
     }
 	
-	private void openServer(final int port, final Handler handler) {
+	private void openChatServer(final int port, final Handler handler) {
 		new Thread(new Runnable(){
 			public void run() {
 				try {
 					Message message = Message.obtain();
-					myServer = new MyServer(port);
-					String ipString = myServer.waitForClient();
-					System.out.println("ip = " + ipString);
+					chatService = new MyServer(port);
 
 					String clientMessage;
-					while((clientMessage = myServer.getClientMessage()) != null) {    
+					while((clientMessage = chatService.getMessage()) != null) {    
 						message.obj = clientMessage;
 						handler.sendMessage(message);
 					}
 				} catch (IOException ex) {
-					myServer.closeConnection();
+					ex.printStackTrace();
+					chatService.closeConnection();
 				}
 			}
 		}).start();
 	}
 	
-	private void connectToServer(final int port, final Handler handler) {
+	private void connectToChatServer(final int port, final Handler handler) {
 		new Thread(new Runnable(){
             public void run() {
             	try {
             		Message message = Message.obtain();
             		
-            		myClient = new MyClient();
-          	        myClient.connectToServer(info.groupOwnerAddress, port);
+            		chatService = new MyClient(info.groupOwnerAddress, port);
           	      
           	        String serverMessage;
-          	        while((serverMessage = myClient.getServerMessage()) != null) {                          	        	
+          	        while((serverMessage = chatService.getMessage()) != null) {                          	        	
           	        	message.obj = serverMessage;
           	        	handler.sendMessage(message);
           	        }
             	} catch (IOException ex) {
-            		myClient.closeConnection();
+            		chatService.closeConnection();
             	}
             }
         }).start();
 	}
 	
-	Handler uiHandler = new Handler() {
+	private void setStatusText(String text) {
+		TextView view = (TextView) mContentView.findViewById(R.id.status_text);
+		view.setText(text);
+	}
+	
+	private Handler mainHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
-			TextView view = (TextView) mContentView.findViewById(R.id.status_text);
-			if (info.groupFormed && info.isGroupOwner) {
-				view.setText("I am ower, " + msg.obj.toString());
-			} else if (info.groupFormed) {
-				view.setText("I am client, " + msg.obj.toString());
+			this.obtainMessage();
+			
+			try {
+				JSONObject jsonObject = new JSONObject(msg.obj.toString());
+				ServiceAction action = ServiceAction.valueOf(jsonObject.getString("action"));
+				switch (action) {
+				case AskFile:
+					setStatusText(jsonObject.getString("filePath"));
+					checkFile(jsonObject.getString("filePath"));
+					break;
+					
+				case FileExist:
+					setStatusText(jsonObject.getString("status"));
+					if (jsonObject.getBoolean("status")) {
+						giveMeFile(jsonObject.getString("filePath"));
+					} else {
+						disconnect();
+					}
+					break;
+					
+				case GiveMeFile:
+					setStatusText("IT SAY GIVE ME FILE!");
+					transferFile(jsonObject.getString("filePath"));
+					break;
+					
+				case TransferFile:
+					new Thread() {
+						@Override
+						public void run() {
+							System.out.println("d1");
+							transferFileService = new MyClient(chatService.getTargetIP(), TRANSFERPORT);
+							System.out.println("d2");
+							transferFileService.saveFile(FileHelp.getSDPath() + testFilePath);
+							System.out.println("d3");
+							transferFileService.closeConnection();
+							System.out.println("d4");
+							fileHandler.sendEmptyMessage(0);
+							System.out.println("d5");
+						}
+					}.start();
+					
+					String filePath = jsonObject.getString("filePath");
+					setStatusText("Transfer..." + filePath);
+					break;
+					
+				case Disconnect:
+					setStatusText("disconnect");
+					
+                    ((DeviceActionListener) getActivity()).disconnect();
+                    chatService.closeConnection();
+					break;
+				default:
+					break;
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
+	};
+	
+	private void askFile(String filePath) {
+		try {
+			setStatusText("ask file");
+			
+			JSONObject jsonObject = new JSONObject();
+			jsonObject.put("action", ServiceAction.AskFile);
+			jsonObject.put("filePath", filePath);
+			
+			chatService.sendMessage(jsonObject.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void checkFile(String filePath) {
+		String realPath = FileHelp.getSDPath() + filePath;
+		File file = new File(realPath);
+		
+		isFileExist(file.exists(), filePath);
+	}
+	
+	private void isFileExist(boolean isExist, String filePath) {
+		try {
+			setStatusText("answer file exist");
+			
+			JSONObject jsonObject = new JSONObject();
+			jsonObject.put("action", ServiceAction.FileExist);
+			jsonObject.put("status", isExist);
+			if (isExist) {
+				jsonObject.put("filePath", filePath);
+			}
+			
+			chatService.sendMessage(jsonObject.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void giveMeFile(String filePath) {
+		try {
+			setStatusText("give me file");
+			
+			JSONObject jsonObject = new JSONObject();
+			jsonObject.put("action", ServiceAction.GiveMeFile);
+			jsonObject.put("filePath", filePath);
+			
+			chatService.sendMessage(jsonObject.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void disconnect() {
+		try {
+			setStatusText("disconnect");
+			
+			JSONObject jsonObject = new JSONObject();
+			jsonObject.put("action", ServiceAction.Disconnect);
+			
+			chatService.sendMessage(jsonObject.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			chatService.closeConnection();
+		}
+	}
+	
+	private void transferFile(String filePath) {
+		try { 
+            new Thread() {
+				@Override
+				public void run() {
+					transferFileService = new MyServer(TRANSFERPORT);
+					System.out.println("1");
+					transferFileService.sendFile(FileHelp.getSDPath()+testFilePath);
+					System.out.println("2");
+					transferFileService.closeConnection();
+					System.out.println("3");
+					fileHandler.sendEmptyMessage(0);
+					System.out.println("4");
+				}
+            }.start();
+			
+            JSONObject jsonObject = new JSONObject();
+			jsonObject.put("action", ServiceAction.TransferFile);
+			jsonObject.put("filePath", filePath);
+            chatService.sendMessage(jsonObject.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private Handler fileHandler = new Handler() {
+
+		@Override
+		public void handleMessage(Message msg) {
+			setStatusText("Done");
+			disconnect();
+		}
+		
 	};
 }

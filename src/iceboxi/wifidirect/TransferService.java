@@ -1,5 +1,7 @@
 package iceboxi.wifidirect;
 
+import iceboxi.connect.service.ServiceAction;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +32,7 @@ public class TransferService extends IntentService {
 	protected void onHandleIntent(Intent intent) {
 		Context context = getApplicationContext();
 		
-		if (intent.getAction().equals(ServiceAction.TansferFile.toString())) {
+		if (intent.getAction().equals(ServiceAction.TransferFile.toString())) {
             String fileUri = intent.getExtras().getString(EXTRAS_FILE_PATH);
             String host = intent.getExtras().getString(EXTRAS_GROUP_OWNER_ADDRESS);
             Socket socket = new Socket();
@@ -63,38 +65,7 @@ public class TransferService extends IntentService {
                 }
             }
 
-        } else if (intent.getAction().equals(ServiceAction.PostClientIP.toString())) {
-        	String host = intent.getExtras().getString(EXTRAS_GROUP_OWNER_ADDRESS);
-            Socket socket = new Socket();
-            int port = intent.getExtras().getInt(EXTRAS_GROUP_OWNER_PORT);
-            
-            try {
-                socket.bind(null);
-                socket.connect((new InetSocketAddress(host, port)), SOCKET_TIMEOUT);
-
-                OutputStream stream = socket.getOutputStream();
-                ContentResolver cr = context.getContentResolver();
-                InputStream is = null;
-                try {
-                	is = new ByteArrayInputStream("".getBytes());
-                } catch (Exception e) {
-                	
-				}
-                DeviceDetailFragment.copyFile(is, stream);
-            } catch (IOException e) {
-            } finally {
-                if (socket != null) {
-                    if (socket.isConnected()) {
-                        try {
-                            socket.close();
-                        } catch (IOException e) {
-                            // Give up
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-		}
+        }
 	}
 
 }
