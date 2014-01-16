@@ -2,15 +2,14 @@ package iceboxi.system.file;
 
 import java.io.File;
 
-import android.content.Context;
 import android.os.Environment;
 
 public class FileHelp {
-	private Context context;
-	
-	public FileHelp(Context context) {
-		this.context = context;
-	}
+//	private Context context;
+//	
+//	public FileHelp(Context context) {
+//		this.context = context;
+//	}
 	
 	public static String getSDPath() { 
 		File SDRootDir = null; 

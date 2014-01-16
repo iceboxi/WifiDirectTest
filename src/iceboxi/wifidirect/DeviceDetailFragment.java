@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.ref.WeakReference;
 
 import org.json.JSONObject;
 
@@ -41,7 +42,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private String testFilePath = "/Download/123.pdf";
     private final int CHATPORT = 8998;
     private final int TRANSFERPORT = 8988;
-    private String fileAtTheIP = null;
     
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -203,68 +203,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 		view.setText(text);
 	}
 	
-	private Handler mainHandler = new Handler() {
-		@Override
-		public void handleMessage(Message msg) {
-			this.obtainMessage();
-			
-			try {
-				JSONObject jsonObject = new JSONObject(msg.obj.toString());
-				ServiceAction action = ServiceAction.valueOf(jsonObject.getString("action"));
-				switch (action) {
-				case AskFile:
-					setStatusText(jsonObject.getString("filePath"));
-					checkFile(jsonObject.getString("filePath"));
-					break;
-					
-				case FileExist:
-					setStatusText(jsonObject.getString("status"));
-					if (jsonObject.getBoolean("status")) {
-						giveMeFile(jsonObject.getString("filePath"));
-					} else {
-						disconnect();
-					}
-					break;
-					
-				case GiveMeFile:
-					setStatusText("IT SAY GIVE ME FILE!");
-					transferFile(jsonObject.getString("filePath"));
-					break;
-					
-				case TransferFile:
-					new Thread() {
-						@Override
-						public void run() {
-							System.out.println("d1");
-							transferFileService = new MyClient(chatService.getTargetIP(), TRANSFERPORT);
-							System.out.println("d2");
-							transferFileService.saveFile(FileHelp.getSDPath() + testFilePath);
-							System.out.println("d3");
-							transferFileService.closeConnection();
-							System.out.println("d4");
-							fileHandler.sendEmptyMessage(0);
-							System.out.println("d5");
-						}
-					}.start();
-					
-					String filePath = jsonObject.getString("filePath");
-					setStatusText("Transfer..." + filePath);
-					break;
-					
-				case Disconnect:
-					setStatusText("disconnect");
-					
-                    ((DeviceActionListener) getActivity()).disconnect();
-                    chatService.closeConnection();
-					break;
-				default:
-					break;
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-	};
+	private MyHandlerMain mainHandler = new MyHandlerMain(this);
 	
 	private void askFile(String filePath) {
 		try {
@@ -358,13 +297,89 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 		}
 	}
 	
-	private Handler fileHandler = new Handler() {
+	private MyHandler fileHandler = new MyHandler(this);
+	
+	private static class MyHandler extends Handler {
+		private final WeakReference<DeviceDetailFragment> mFragment;
+		
+		public MyHandler(DeviceDetailFragment fragment) {
+			mFragment = new WeakReference<DeviceDetailFragment>(fragment);
+		}
 
 		@Override
 		public void handleMessage(Message msg) {
-			setStatusText("Done");
-			disconnect();
+			DeviceDetailFragment fragment = mFragment.get();
+			if (fragment != null) {
+				fragment.setStatusText("Done");
+				fragment.disconnect();
+			}
 		}
+	}
+	
+	private static class MyHandlerMain extends Handler {
+		private final WeakReference<DeviceDetailFragment> mFragment;
 		
-	};
+		public MyHandlerMain(DeviceDetailFragment fragment) {
+			mFragment = new WeakReference<DeviceDetailFragment>(fragment);
+		}
+
+		@Override
+		public void handleMessage(Message msg) {
+			final DeviceDetailFragment fragment = mFragment.get();
+			if (fragment != null) {
+				this.obtainMessage();
+				
+				try {
+					JSONObject jsonObject = new JSONObject(msg.obj.toString());
+					ServiceAction action = ServiceAction.valueOf(jsonObject.getString("action"));
+					switch (action) {
+					case AskFile:
+						fragment.setStatusText(jsonObject.getString("filePath"));
+						fragment.checkFile(jsonObject.getString("filePath"));
+						break;
+						
+					case FileExist:
+						fragment.setStatusText(jsonObject.getString("status"));
+						if (jsonObject.getBoolean("status")) {
+							fragment.giveMeFile(jsonObject.getString("filePath"));
+						} else {
+							fragment.disconnect();
+						}
+						break;
+						
+					case GiveMeFile:
+						fragment.setStatusText("IT SAY GIVE ME FILE!");
+						fragment.transferFile(jsonObject.getString("filePath"));
+						break;
+						
+					case TransferFile:
+						new Thread() {
+							@Override
+							public void run() {
+								fragment.transferFileService = new MyClient(fragment.chatService.getTargetIP(), fragment.TRANSFERPORT);
+								fragment.transferFileService.saveFile(FileHelp.getSDPath() + fragment.testFilePath);
+								fragment.transferFileService.closeConnection();
+								fragment.fileHandler.sendEmptyMessage(0);
+							}
+						}.start();
+						
+						String filePath = jsonObject.getString("filePath");
+						fragment.setStatusText("Transfer..." + filePath);
+						break;
+						
+					case Disconnect:
+						fragment.setStatusText("disconnect");
+						
+	                    ((DeviceActionListener) fragment.getActivity()).disconnect();
+	                    fragment.chatService.closeConnection();
+						break;
+					default:
+						break;
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 }
