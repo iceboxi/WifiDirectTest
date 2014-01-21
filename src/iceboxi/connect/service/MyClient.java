@@ -1,12 +1,13 @@
 package iceboxi.connect.service;
 
-import java.io.IOException;
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class MyClient extends MyService{
 	private final int SOCKET_TIMEOUT = 5000;
+	private final int MAX_RETRY = 10;
     
     public MyClient(InetAddress serverInetAddr, int serverPort) {
     	try {
@@ -16,20 +17,38 @@ public class MyClient extends MyService{
 		}
     }
 	
-	public void connectToServer(InetAddress serverInetAddr, int serverPort) throws IOException {
-		Socket socket = new Socket();
-		socket.bind(null);
-		socket.connect((new InetSocketAddress(serverInetAddr, serverPort)), SOCKET_TIMEOUT);
+	public void connectToServer(InetAddress serverInetAddr, int serverPort) throws ConnectException {	
+		int count = 0;
+		while (count < MAX_RETRY) {
+			try {
+				Socket socket = new Socket();
+				socket.bind(null);
+				socket.connect((new InetSocketAddress(serverInetAddr, serverPort)), SOCKET_TIMEOUT);
+				
+				if (socket.isConnected()) {
+					setSocket(socket);
+					break;
+				} else {
+					socket.close();
+				}
+			} catch (Exception e) {
+				count++;
+				e.printStackTrace();
+			}
+		}
 		
-		setSocket(socket);
+		if (count >= MAX_RETRY) {
+			throw new ConnectException("refuse connect");
+		}
 	}
     
     
 	@Override
     public void closeConnection() {
     	try {
-            socket.close();
-    	} catch (IOException e) {
+    		socket.close();
+    	} catch (Exception e) {
+    		e.printStackTrace();
     	}    	
     }
 }

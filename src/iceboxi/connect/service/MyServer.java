@@ -33,6 +33,7 @@ public class MyServer extends MyService {
     	try {
             serverSkt.close();
     	} catch (IOException e) {	
+    		e.printStackTrace();
     	}
     }
 }
