@@ -1,9 +1,9 @@
 package iceboxi.wifidirect;
 
 
-import iceboxi.connect.service.MyService;
 import iceboxi.connect.service.MyClient;
 import iceboxi.connect.service.MyServer;
+import iceboxi.connect.service.MyService;
 import iceboxi.connect.service.ServiceAction;
 import iceboxi.system.file.FileHelp;
 
@@ -223,37 +223,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 		String realPath = FileHelp.getSDPath() + filePath;
 		File file = new File(realPath);
 		
-		isFileExist(file.exists(), filePath);
-	}
-	
-	private void isFileExist(boolean isExist, String filePath) {
-		try {
-			setStatusText("answer file exist");
-			
-			JSONObject jsonObject = new JSONObject();
-			jsonObject.put("action", ServiceAction.FileExist);
-			jsonObject.put("status", isExist);
-			if (isExist) {
-				jsonObject.put("filePath", filePath);
-			}
-			
-			chatService.sendMessage(jsonObject.toString());
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-	
-	private void giveMeFile(String filePath) {
-		try {
-			setStatusText("give me file");
-			
-			JSONObject jsonObject = new JSONObject();
-			jsonObject.put("action", ServiceAction.GiveMeFile);
-			jsonObject.put("filePath", filePath);
-			
-			chatService.sendMessage(jsonObject.toString());
-		} catch (Exception e) {
-			e.printStackTrace();
+		if (file.exists()) {
+			transferFile(filePath);
+		} else {
+			disconnect();
 		}
 	}
 	
@@ -272,21 +245,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 		}
 	}
 	
-	private void transferFile(String filePath) {
+	private void transferFile(final String filePath) {
 		try { 
-            new Thread() {
-				@Override
-				public void run() {
-					transferFileService = new MyServer(TRANSFERPORT);
-					System.out.println("1");
-					transferFileService.sendFile(FileHelp.getSDPath()+testFilePath);
-					System.out.println("2");
-					transferFileService.closeConnection();
-					System.out.println("3");
-					fileHandler.sendEmptyMessage(0);
-					System.out.println("4");
-				}
-            }.start();
+            openTransportServer();
 			
             JSONObject jsonObject = new JSONObject();
 			jsonObject.put("action", ServiceAction.TransferFile);
@@ -338,30 +299,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 						fragment.checkFile(jsonObject.getString("filePath"));
 						break;
 						
-					case FileExist:
-						fragment.setStatusText(jsonObject.getString("status"));
-						if (jsonObject.getBoolean("status")) {
-							fragment.giveMeFile(jsonObject.getString("filePath"));
-						} else {
-							fragment.disconnect();
-						}
-						break;
-						
-					case GiveMeFile:
-						fragment.setStatusText("IT SAY GIVE ME FILE!");
-						fragment.transferFile(jsonObject.getString("filePath"));
-						break;
-						
 					case TransferFile:
-						new Thread() {
-							@Override
-							public void run() {
-								fragment.transferFileService = new MyClient(fragment.chatService.getTargetIP(), fragment.TRANSFERPORT);
-								fragment.transferFileService.saveFile(FileHelp.getSDPath() + fragment.testFilePath);
-								fragment.transferFileService.closeConnection();
-								fragment.fileHandler.sendEmptyMessage(0);
-							}
-						}.start();
+						fragment.connectToTransportServer();
 						
 						String filePath = jsonObject.getString("filePath");
 						fragment.setStatusText("Transfer..." + filePath);
@@ -373,7 +312,9 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	                    ((DeviceActionListener) fragment.getActivity()).disconnect();
 	                    fragment.chatService.closeConnection();
 						break;
+						
 					default:
+						fragment.setStatusText("connect failed");
 						break;
 					}
 				} catch (Exception e) {
@@ -381,5 +322,29 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 				}
 			}
 		}
+	}
+	
+	private void openTransportServer() {
+		new Thread() {
+			@Override
+			public void run() {
+				transferFileService = new MyServer(TRANSFERPORT);
+				transferFileService.sendFile(FileHelp.getSDPath()+testFilePath);
+				transferFileService.closeConnection();
+				fileHandler.sendEmptyMessage(0);
+			}
+        }.start();
+	}
+	
+	private void connectToTransportServer() {
+		new Thread() {
+			@Override
+			public void run() {
+				transferFileService = new MyClient(chatService.getTargetIP(), TRANSFERPORT);
+				transferFileService.saveFile(FileHelp.getSDPath() + testFilePath);
+				transferFileService.closeConnection();
+				fileHandler.sendEmptyMessage(0);
+			}
+		}.start();
 	}
 }
