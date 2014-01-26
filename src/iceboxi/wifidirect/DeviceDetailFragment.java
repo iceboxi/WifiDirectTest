@@ -170,6 +170,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 					break;
 
 				case Disconnect:
+					chatService.closeConnection();
 					mainHandler.sendEmptyMessage(0x00);
 					break;
 
@@ -246,8 +247,8 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 				
 				switch (msg.what) {
 				case 0x00:
+					// TODO dialog?
 					((DeviceActionListener) fragment.getActivity()).disconnect();
-					fragment.chatService.closeConnection();
 					break;
 
 				default:
