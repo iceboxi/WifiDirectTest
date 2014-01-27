@@ -4,13 +4,7 @@ import java.io.File;
 
 import android.os.Environment;
 
-public class FileHelp {
-//	private Context context;
-//	
-//	public FileHelp(Context context) {
-//		this.context = context;
-//	}
-	
+public class FileHelp {	
 	public static String getSDPath() { 
 		File SDRootDir = null; 
 		boolean isSDCardExist = Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED); 

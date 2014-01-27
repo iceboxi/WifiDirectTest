@@ -10,6 +10,8 @@ import iceboxi.system.file.FileHelp;
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 import android.app.Fragment;
 import android.app.ProgressDialog;
@@ -33,12 +35,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     private WifiP2pInfo info;
     ProgressDialog progressDialog = null;
     private MyService chatService;
-    private String testFilePath = "/Download/123.mp4";
+    private List<String> filePaths;
+    private int indexOfFile;
     private final int CHATPORT = 8998;
     
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-
+    	prepareTestFilePathArray();
+    	
         mContentView = inflater.inflate(R.layout.device_detail, null);
         mContentView.findViewById(R.id.btn_connect).setOnClickListener(new View.OnClickListener() {
 
@@ -71,11 +75,19 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 
                     @Override
                     public void onClick(View v) {
-                    	askFile(testFilePath);
+                    	askFile();
                     }
                 });
 
         return mContentView;
+    }
+    
+    private void prepareTestFilePathArray() {
+    	filePaths = new ArrayList<String>();
+    	filePaths.add("/Download/123.mp4");
+    	filePaths.add("/Download/123.pptx");
+    	filePaths.add("/Download/setup_home.apk");
+    	filePaths.add("/Download/M06F10A0.doc");
     }
     
 	@Override
@@ -144,6 +156,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	}
 	
 	private void connectToChatServer(final int port) {
+		indexOfFile = 0;
 		new Thread(new Runnable(){
             public void run() {
             	chatService = new MyClient(info.groupOwnerAddress, port);
@@ -166,7 +179,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 				case TransferFile:
 					chatMsg = FileHelp.getSDPath() + chatService.getMessage();
 					chatService.saveFile(chatMsg);
-					disconnect();
+					filePaths.remove(indexOfFile);
+					askFile();
+					break;
+					
+				case NotExist:
+					indexOfFile++;
+					askFile();
 					break;
 
 				case Disconnect:
@@ -190,12 +209,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	
 	private MyHandlerMain mainHandler = new MyHandlerMain(this);
 	
-	private void askFile(String filePath) {
+	private void askFile() {
 		try {
-			setStatusText("ask file");
-
-			chatService.sendMessage(ServiceAction.AskFile.toString());
-			chatService.sendMessage(filePath);		
+			if (filePaths != null && filePaths.size()>indexOfFile) {
+				chatService.sendMessage(ServiceAction.AskFile.toString());
+				chatService.sendMessage(filePaths.get(indexOfFile));
+			} else {
+				disconnect();
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -208,7 +229,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 		if (file.exists()) {
 			transferFile(filePath);
 		} else {
-			disconnect();
+			notHaveFile();
 		}
 	}
 	
@@ -219,6 +240,14 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 			e.printStackTrace();
 		} finally {
 			chatService.closeConnection();
+		}
+	}
+	
+	private void notHaveFile() {
+		try {
+			chatService.sendMessage(ServiceAction.NotExist.toString());
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 	
