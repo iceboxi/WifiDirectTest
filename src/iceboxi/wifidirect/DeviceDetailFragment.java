@@ -84,10 +84,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     
     private void prepareTestFilePathArray() {
     	filePaths = new ArrayList<String>();
-    	filePaths.add("/Download/123.mp4");
     	filePaths.add("/Download/123.pptx");
     	filePaths.add("/Download/setup_home.apk");
     	filePaths.add("/Download/M06F10A0.doc");
+    	filePaths.add("/Download/123.mp4");
     }
     
 	@Override
@@ -125,6 +125,10 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
         view = (TextView) mContentView.findViewById(R.id.device_info);
         view.setText(device.toString());
     }
+	
+	private void showProcessDialog(String message) {
+		progressDialog = ProgressDialog.show(getActivity(), "Process...", message, true);
+	}
 	
 	private void dismissDialog() {
 		if (progressDialog != null && progressDialog.isShowing()) {
@@ -167,23 +171,40 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	
 	private void serviceWork() {
 		try {
-  	        String chatMsg;
-  	        while((chatMsg = chatService.getMessage()) != null) {          
+			String chatMsg;
+  	        while((chatMsg = chatService.getMessage()) != null) {    
+  	        	Message msg = Message.obtain();
+  	        	
   	        	ServiceAction action = ServiceAction.valueOf(chatMsg);
 				switch (action) {
 				case AskFile:
 					chatMsg = chatService.getMessage();
+					
+					msg.what = 0x01;
+					msg.obj = "Transfer...\n" + chatMsg;
+					mainHandler.sendMessage(msg);
+					
 					checkFile(chatMsg);
 					break;
 					
 				case TransferFile:
 					chatMsg = FileHelp.getSDPath() + chatService.getMessage();
+					
+					msg.what = 0x01;
+					msg.obj = "Save...\n" + chatMsg;
+					mainHandler.sendMessage(msg);
+					
 					chatService.saveFile(chatMsg);
 					filePaths.remove(indexOfFile);
 					askFile();
 					break;
 					
 				case NotExist:
+					
+					msg.what = 0x01;
+					msg.obj = "Nor Exist, check next file...";
+					mainHandler.sendMessage(msg);
+					
 					indexOfFile++;
 					askFile();
 					break;
@@ -200,11 +221,6 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
     	} catch (IOException ex) {
     		chatService.closeConnection();
     	}
-	}
-	
-	private void setStatusText(String text) {
-		TextView view = (TextView) mContentView.findViewById(R.id.status_text);
-		view.setText(text);
 	}
 	
 	private MyHandlerMain mainHandler = new MyHandlerMain(this);
@@ -236,6 +252,7 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 	private void disconnect() {
 		try {
 			chatService.sendMessage(ServiceAction.Disconnect.toString());
+			dismissDialog();
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -276,8 +293,13 @@ public class DeviceDetailFragment extends Fragment implements ConnectionInfoList
 				
 				switch (msg.what) {
 				case 0x00:
-					// TODO dialog?
 					((DeviceActionListener) fragment.getActivity()).disconnect();
+					fragment.dismissDialog();
+					break;
+
+				case 0x01:
+					fragment.dismissDialog();
+					fragment.showProcessDialog((String) msg.obj);
 					break;
 
 				default:
