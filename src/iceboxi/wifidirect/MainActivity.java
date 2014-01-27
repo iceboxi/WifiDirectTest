@@ -19,7 +19,7 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity implements DeviceActionListener{
 
-	public static final String TAG = "wifidirect+nanoDemo";
+	public static final String TAG = "wifidirecttest";
 	private WifiP2pManager manager;
 	private boolean isWifiP2pEnabled = false;
 	
